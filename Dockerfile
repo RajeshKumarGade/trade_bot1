@@ -7,6 +7,7 @@ WORKDIR /app
 
 # Required for Selenium-based token generation in containerized environments.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
     chromium \
     chromium-driver \
     ca-certificates \
