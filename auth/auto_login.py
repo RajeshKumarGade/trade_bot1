@@ -6,9 +6,37 @@ from pyotp import TOTP
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
 
 from auth.credentials import read_credentials
-from config.settings import ACCESS_TOKEN_FILE
+from config.settings import ACCESS_TOKEN_FILE, DATA_DIR
+
+
+def _first_visible_element(driver, selectors, timeout=20):
+    wait = WebDriverWait(driver, timeout)
+    for by, value in selectors:
+        try:
+            element = wait.until(EC.visibility_of_element_located((by, value)))
+            return element
+        except Exception:
+            continue
+    raise RuntimeError(f"Could not find any selector: {selectors}")
+
+
+def _dump_debug_artifacts(driver):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    html_path = DATA_DIR / "selenium_debug_page.html"
+    png_path = DATA_DIR / "selenium_debug_page.png"
+    try:
+        html_path.write_text(driver.page_source, encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        driver.save_screenshot(str(png_path))
+    except Exception:
+        pass
+    print(f"Saved Selenium debug artifacts to: {html_path} and {png_path}")
 
 
 def generate_access_token():
@@ -17,8 +45,8 @@ def generate_access_token():
         raise ValueError(
             "Auto login requires KITE_USER_ID/KITE_PASSWORD/KITE_TOTP_SECRET or full api_key.txt fields."
         )
-    kite = KiteConnect(api_key=key_secret[0])
 
+    kite = KiteConnect(api_key=key_secret[0])
     chrome_driver_path = os.getenv("CHROMEDRIVER_PATH")
     chrome_binary_path = os.getenv("CHROME_BIN")
 
@@ -36,27 +64,78 @@ def generate_access_token():
     else:
         driver = webdriver.Chrome(options=options)
 
-    driver.get(kite.login_url())
-    driver.implicitly_wait(10)
+    try:
+        driver.get(kite.login_url())
+        wait = WebDriverWait(driver, 25)
 
-    driver.find_element(By.XPATH, '//input[@type="text"]').send_keys(key_secret[2])
-    driver.find_element(By.XPATH, '//input[@type="password"]').send_keys(key_secret[3])
-    driver.find_element(By.XPATH, '//button[@type="submit"]').click()
+        user_input = _first_visible_element(
+            driver,
+            [
+                (By.XPATH, '//input[@type="text"]'),
+                (By.CSS_SELECTOR, 'input[autocomplete="username"]'),
+            ],
+        )
+        user_input.clear()
+        user_input.send_keys(key_secret[2])
 
-    time.sleep(2)
-    totp = TOTP(key_secret[4]).now()
-    driver.find_element(By.XPATH, '//input[@type="password"]').send_keys(totp)
-    driver.find_element(By.XPATH, '//button[@type="submit"]').click()
+        password_input = _first_visible_element(
+            driver,
+            [
+                (By.XPATH, '//input[@type="password"]'),
+                (By.CSS_SELECTOR, 'input[autocomplete="current-password"]'),
+            ],
+        )
+        password_input.clear()
+        password_input.send_keys(key_secret[3])
 
-    time.sleep(8)
-    request_token = driver.current_url.split("request_token=")[1][:32]
-    driver.quit()
+        login_button = _first_visible_element(
+            driver,
+            [
+                (By.XPATH, '//button[@type="submit"]'),
+                (By.CSS_SELECTOR, "button"),
+            ],
+        )
+        login_button.click()
 
-    session_data = kite.generate_session(request_token, api_secret=key_secret[1])
-    access_token = session_data["access_token"]
+        totp = TOTP(key_secret[4]).now()
+        totp_input = _first_visible_element(
+            driver,
+            [
+                (By.CSS_SELECTOR, 'input[autocomplete="one-time-code"]'),
+                (By.XPATH, '//input[@type="tel"]'),
+                (By.XPATH, '//input[@type="number"]'),
+                (By.XPATH, '//input[@type="password"]'),
+            ],
+            timeout=30,
+        )
+        totp_input.clear()
+        totp_input.send_keys(totp)
 
-    with open(ACCESS_TOKEN_FILE, "w") as file:
-        file.write(access_token)
+        verify_button = _first_visible_element(
+            driver,
+            [
+                (By.XPATH, '//button[@type="submit"]'),
+                (By.CSS_SELECTOR, "button"),
+            ],
+        )
+        verify_button.click()
 
-    print("Access token generated successfully")
-    return access_token
+        wait.until(lambda d: "request_token=" in d.current_url)
+        request_token = driver.current_url.split("request_token=")[1][:32]
+
+        session_data = kite.generate_session(request_token, api_secret=key_secret[1])
+        access_token = session_data["access_token"]
+
+        with open(ACCESS_TOKEN_FILE, "w") as file:
+            file.write(access_token)
+
+        print("Access token generated successfully")
+        return access_token
+    except Exception:
+        _dump_debug_artifacts(driver)
+        raise
+    finally:
+        try:
+            driver.quit()
+        except Exception:
+            pass
