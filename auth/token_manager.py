@@ -3,8 +3,6 @@ import os
 from kiteconnect import KiteConnect
 
 from auth.credentials import read_credentials
-from auth.auto_login import generate_access_token
-from config.settings import ACCESS_TOKEN_FILE
 
 
 def is_token_working(access_token):
@@ -20,24 +18,16 @@ def is_token_working(access_token):
 
 
 def get_access_token():
-    env_access_token = os.getenv("KITE_ACCESS_TOKEN")
-    if env_access_token and is_token_working(env_access_token):
-        print("Using KITE_ACCESS_TOKEN from environment")
-        return env_access_token
+    env_access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip()
+    if not env_access_token:
+        raise RuntimeError(
+            "KITE_ACCESS_TOKEN is required. Generate a fresh access token daily and set it in Railway variables."
+        )
 
-    if os.path.exists(ACCESS_TOKEN_FILE):
-        access_token = open(ACCESS_TOKEN_FILE).read().strip()
-        print("Checking existing access token...")
-        if is_token_working(access_token):
-            print("Existing token is valid")
-            return access_token
-        print("Token expired or invalid. Regenerating...")
-    else:
-        print("Token file not found. Generating new token...")
+    if not is_token_working(env_access_token):
+        raise RuntimeError(
+            "KITE_ACCESS_TOKEN is invalid/expired. Update Railway variable with a fresh token."
+        )
 
-    new_token = generate_access_token()
-    if is_token_working(new_token):
-        print("New token generated and verified")
-        return new_token
-
-    raise RuntimeError("Failed to generate valid access token")
+    print("Using KITE_ACCESS_TOKEN from environment")
+    return env_access_token

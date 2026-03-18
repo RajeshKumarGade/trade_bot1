@@ -2,7 +2,7 @@
 
 ## 1) Create service
 - Create a new Railway project and connect this repo.
-- Deploy using the included `Dockerfile` (recommended for Selenium support).
+- Deploy using the included `Dockerfile`.
 - Start command is already defined by `Procfile` as `python main.py`.
 
 ## 2) Add persistent volume
@@ -14,11 +14,7 @@ Set these in Railway service variables:
 
 - `KITE_API_KEY`
 - `KITE_API_SECRET`
-
-Use one of these token approaches:
-
-- Preferred: set `KITE_ACCESS_TOKEN` manually each day (no Selenium dependency at runtime).
-- Auto-login mode: also set `KITE_USER_ID`, `KITE_PASSWORD`, `KITE_TOTP_SECRET`.
+- `KITE_ACCESS_TOKEN` (must be refreshed daily)
 
 Recommended runtime variables:
 

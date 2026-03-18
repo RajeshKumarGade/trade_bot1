@@ -1,7 +1,5 @@
 kiteconnect
 pandas
 numpy
-selenium
-pyotp
 python-dotenv
 git+https://github.com/rongardF/tvdatafeed.git
