@@ -1,0 +1,7 @@
+kiteconnect
+pandas
+numpy
+tvdatafeed
+selenium
+pyotp
+python-dotenv
