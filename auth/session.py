@@ -6,7 +6,8 @@ from auth.token_manager import get_access_token
 
 
 def read_access_session():
-    access_token = get_access_token()
+    #access_token = get_access_token()
+    access_token = os.getenv("KITE_ACCESS_TOKEN")
     key_secret = read_credentials()
 
     kite = KiteConnect(api_key=key_secret[0])
