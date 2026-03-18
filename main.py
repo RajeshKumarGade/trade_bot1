@@ -39,6 +39,7 @@ def _start_trade_manager(
 
 
 def main():
+    print("BUILD_MARKER: TOKEN_ENV_V3")
     key_secret, access_token, kite, _dump, instrument_df = read_access_session()
     api_key = key_secret[0]
 
