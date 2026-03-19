@@ -1,26 +1,60 @@
 import os
+from pathlib import Path
+
+from config.settings import ACCESS_TOKEN_FILE
+
+TOKEN_ENV_KEYS = [
+    "KITE_ACCESS_TOKEN",
+    "ACCESS_TOKEN",
+    "ZERODHA_ACCESS_TOKEN",
+    "RAILWAY_KITE_ACCESS_TOKEN",
+]
+
+
+def _sanitize_token(value):
+    token = (value or "").strip()
+    if (
+        len(token) >= 2
+        and token[0] == token[-1]
+        and token[0] in ("'", '"')
+    ):
+        token = token[1:-1].strip()
+    return token
+
+
+def _token_from_env():
+    for key in TOKEN_ENV_KEYS:
+        token = _sanitize_token(os.getenv(key))
+        if token:
+            print(f"Using access token from environment key: {key}")
+            return token
+    return ""
+
+
+def _token_from_file():
+    token_file = Path(ACCESS_TOKEN_FILE)
+    if not token_file.exists():
+        return ""
+    token = _sanitize_token(token_file.read_text(encoding="utf-8"))
+    if token:
+        print(f"Using access token from file: {token_file}")
+    return token
 
 
 def get_access_token():
-    access_token = os.getenv("KITE_ACCESS_TOKEN", "").strip()
-    if not access_token:
-        # Fallback aliases to handle common env naming mistakes.
-        access_token = os.getenv("ACCESS_TOKEN", "").strip()
-    if not access_token:
-        access_token = os.getenv("ZERODHA_ACCESS_TOKEN", "").strip()
+    token = _token_from_env()
+    if token:
+        return token
 
-    # Remove accidental wrapping quotes from Railway variable input.
-    if (
-        len(access_token) >= 2
-        and access_token[0] == access_token[-1]
-        and access_token[0] in ("'", '"')
-    ):
-        access_token = access_token[1:-1].strip()
+    token = _token_from_file()
+    if token:
+        return token
 
-    if not access_token:
-        raise RuntimeError(
-            "Access token missing. Set KITE_ACCESS_TOKEN in Railway service variables "
-            "(or ACCESS_TOKEN / ZERODHA_ACCESS_TOKEN)."
-        )
-    print("Using access token from environment")
-    return access_token
+    diagnostics = ", ".join(
+        f"{key}={'set' if os.getenv(key) else 'missing'}" for key in TOKEN_ENV_KEYS
+    )
+    raise RuntimeError(
+        "Access token not found in env or file. "
+        f"Checked env keys: {diagnostics}. "
+        f"Checked file: {ACCESS_TOKEN_FILE}."
+    )

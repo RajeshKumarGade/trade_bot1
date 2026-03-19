@@ -15,6 +15,7 @@ Set these in Railway service variables:
 - `KITE_API_KEY`
 - `KITE_API_SECRET`
 - `KITE_ACCESS_TOKEN` (must be refreshed daily)
+  - Alternate accepted names: `ACCESS_TOKEN` or `ZERODHA_ACCESS_TOKEN`
 
 Recommended runtime variables:
 
